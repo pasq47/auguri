@@ -154,6 +154,17 @@ body {
 .balloon.popped { visibility: hidden; animation: none; }
 @keyframes bob { 50% { transform: translateY(-9px) rotate(2deg); } }
 
+/* Indovina il numero */
+.guess { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px; }
+.guess input {
+  font: inherit; font-family: var(--font-display); font-size: 1.6rem; text-align: center; color: var(--ink);
+  background: #fff; border: 3px solid var(--sky); border-radius: 14px; width: 92px; padding: 8px 10px;
+}
+.guess input:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+.guess-out { margin: 0; min-height: 2.4rem; font-family: var(--font-hand); font-weight: 700; font-size: 2.5rem !important; line-height: 1.2; color: var(--pink); overflow-wrap: anywhere; }
+.guess-out.bump { animation: bump .45s cubic-bezier(.3,1.6,.5,1); }
+@keyframes bump { from { transform: scale(.5); opacity: 0; } to { transform: none; opacity: 1; } }
+
 .row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 18px; padding-top: 22px; border-top: 3px dotted rgba(35,64,217,.35); }
 #no { transition: transform .18s ease-out; }
 .again { align-self: center; margin-top: -6px; background: none; border: 0; color: var(--sky); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 6px; }
@@ -248,6 +259,15 @@ body {
         <button class="balloon" type="button" aria-label="Palloncino giallo"><svg viewBox="0 0 64 100"><path d="M32 4 C 6 4 2 40 22 58 L 32 64 L 42 58 C 62 40 58 4 32 4z" fill="#ffc933"/><path d="M32 64 l-5 7 h10z" fill="#eaa300"/><path d="M32 71 q-8 12 0 22" stroke="#1c1b3a" stroke-width="2" fill="none"/><ellipse cx="21" cy="22" rx="5" ry="9" fill="#fff" opacity=".45" transform="rotate(25 21 22)"/></svg></button>
         <button class="balloon" type="button" aria-label="Palloncino verde"><svg viewBox="0 0 64 100"><path d="M32 4 C 6 4 2 40 22 58 L 32 64 L 42 58 C 62 40 58 4 32 4z" fill="#2fd1a6"/><path d="M32 64 l-5 7 h10z" fill="#17a07d"/><path d="M32 71 q-8 12 0 22" stroke="#1c1b3a" stroke-width="2" fill="none"/><ellipse cx="21" cy="22" rx="5" ry="9" fill="#fff" opacity=".4" transform="rotate(25 21 22)"/></svg></button>
       </div>
+    </section>
+
+    <section class="sec" aria-labelledby="h-guess">
+      <h2 id="h-guess">Ci conosciamo così bene che riesco a capire cosa pensi. Pensa ad un numero</h2>
+      <div class="guess">
+        <input id="guess-in" type="number" inputmode="numeric" min="1" max="10" step="1" placeholder="1" aria-label="Il numero che hai pensato, da 1 a 10">
+        <button class="btn" id="guess-btn" type="button">Indovino!</button>
+      </div>
+      <p class="guess-out" id="guess-out" role="status" aria-live="polite"></p>
     </section>
 
     <div class="row" id="row">
@@ -360,7 +380,7 @@ body {
     $('stage').hidden = false; $('stage').classList.remove('gone');
     $('env').classList.remove('open'); $('env').setAttribute('aria-label', 'Apri la busta');
     $('open').disabled = false;
-    resetCandles(); resetBalloons();
+    resetCandles(); resetBalloons(); resetGuess();
     window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
   });
 
@@ -391,23 +411,58 @@ body {
   });
 
   /* ---------- Palloncini ---------- */
-  var JOKES = [
-    'Pop! Un anno in meno di cui preoccuparsi.',
-    'Questo palloncino era assicurato. Adesso no.',
-    'Ti ha sentito arrivare ed è scoppiato.',
-    'Contenuto: aria fresca e tanti auguri.',
-    'Hai appena scoppiato il mio budget per le decorazioni.'
-  ];
-  var popped = 0;
-  var bals = Array.prototype.slice.call(document.querySelectorAll('.balloon'));
-  bals.forEach(function (b) {
-    b.addEventListener('click', function () {
-      if (b.classList.contains('popped')) return;
-      burstAt(b, 45); b.classList.add('popped'); popped++;
-      toast(popped === bals.length ? 'Palloncini finiti. Ora tocca alla torta.' : JOKES[(Math.random() * JOKES.length) | 0]);
-    });
+var JOKES = [
+  'Fanculo a quella del sushi e quello gay (non ricordo i nomi)',
+  'Fanculo al Pm che assomiglia a rovazzi.',
+  // 'Fanculo a OverIT'
+];
+
+var jokeIndex = 0;
+var popped = 0;
+
+var bals = Array.prototype.slice.call(document.querySelectorAll('.balloon'));
+
+bals.forEach(function (b) {
+  b.addEventListener('click', function () {
+    if (b.classList.contains('popped')) return;
+
+    burstAt(b, 45);
+    b.classList.add('popped');
+    popped++;
+
+    toast(
+      popped === bals.length
+        ? 'Fanculo anche a te Pasquale'
+        : JOKES[jokeIndex++ % JOKES.length]
+    );
   });
-  function resetBalloons() { bals.forEach(function (b) { b.classList.remove('popped'); }); popped = 0; }
+});
+
+function resetBalloons() {
+  bals.forEach(function (b) {
+    b.classList.remove('popped');
+  });
+
+  popped = 0;
+  jokeIndex = 0;
+}
+
+  /* ---------- Indovina il numero ---------- */
+  var gIn = $('guess-in'), gOut = $('guess-out');
+  function showGuess(text) {
+    gOut.textContent = text;
+    gOut.classList.remove('bump'); void gOut.offsetWidth; gOut.classList.add('bump');
+  }
+  function guess() {
+    var raw = gIn.value.trim();
+    var n = Number(raw);
+    if (raw === '' || !isFinite(n)) { showGuess('Scrivi prima un numero!'); gIn.focus(); return; }
+    showGuess('Hai pensato a ' + raw + '!');
+    burstAt($('guess-btn'), 80);
+  }
+  function resetGuess() { gIn.value = ''; gOut.textContent = ''; gOut.classList.remove('bump'); }
+  $('guess-btn').addEventListener('click', guess);
+  gIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); guess(); } });
 
   /* ---------- Bottoni finali ---------- */
   var no = $('no'), dodges = 0, tame = false;
